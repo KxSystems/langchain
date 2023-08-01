@@ -22,6 +22,7 @@ from langchain.vectorstores.elastic_vector_search import (
 from langchain.vectorstores.faiss import FAISS
 from langchain.vectorstores.hologres import Hologres
 from langchain.vectorstores.lancedb import LanceDB
+from langchain.vectorstores.kdbai import KDBAI
 from langchain.vectorstores.marqo import Marqo
 from langchain.vectorstores.matching_engine import MatchingEngine
 from langchain.vectorstores.meilisearch import Meilisearch
@@ -99,4 +100,5 @@ __all__ = [
     "Weaviate",
     "Zilliz",
     "PGVector",
+    "KDBAI"
 ]
