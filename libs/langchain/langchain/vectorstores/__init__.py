@@ -175,6 +175,12 @@ def _import_hologres() -> Any:
     return Hologres
 
 
+def _import_kdbai() -> Any:
+    from langchain.vectorstores.kdbai import KDBAI
+
+    return KDBAI
+
+
 def _import_lancedb() -> Any:
     from langchain.vectorstores.lancedb import LanceDB
 
@@ -559,6 +565,7 @@ __all__ = [
     "Epsilla",
     "FAISS",
     "Hologres",
+    "KDBAI",
     "LanceDB",
     "LLMRails",
     "Marqo",
