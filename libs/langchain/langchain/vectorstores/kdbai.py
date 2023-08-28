@@ -109,7 +109,7 @@ class KDBAI(VectorStore):
         filter: Optional[list] = []
     ) -> List[Tuple[Document, float]]:
         
-        matches = self._table.search(vectors=[embedding], n=k)[0]
+        matches = self._table.search(vectors=[embedding], n=k, filter=filter)[0]
         docs = []
         for row in matches.to_dict(orient='records'):
             text = row.pop('text')
