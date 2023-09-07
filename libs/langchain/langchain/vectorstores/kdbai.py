@@ -59,11 +59,9 @@ class KDBAI(VectorStore):
         df['id'] = ids
         df['text'] = [l.encode('utf-8') for l in texts]
         df['embeddings'] = [np.array(e, dtype='float32') for e in embeds]
-        
         if metadata is not None:
             df = pd.concat([df, metadata], axis=1)
-        
-        self._table.insert(df)
+        self._table.insert(df, warn=False)
 
     def add_texts(
         self,
@@ -74,27 +72,27 @@ class KDBAI(VectorStore):
         **kwargs: Any
     ) -> List[str]:
         out_ids = []
-        for i in range(0, len(texts), batch_size):
-            i_end = min(i + batch_size, len(texts))
-            batch = texts[i:i_end]
+        nbatches = (len(texts)-1)//batch_size + 1
+        for i in range(nbatches):
+            istart = i * batch_size
+            iend = (i+1) * batch_size
+            batch = texts[istart:iend]
             if ids:
-                batch_ids = ids[i:i_end]
+                batch_ids = ids[istart:iend]
             else:
-                batch_ids = [str(uuid.uuid4()) for n in range(i, i_end)]
-                out_ids.append(batch_ids)
+                batch_ids = [str(uuid.uuid4()) for _ in range(batch_size)]
             if metadata is not None:
-                batch_meta = metadata.iloc[i:i_end]
+                batch_meta = metadata.iloc[istart:iend].reset_index(drop=True)
             else:
                 batch_meta = None
             self._insert(batch, batch_ids, batch_meta)
-        if ids:
-            out_ids = ids
+            out_ids = out_ids + batch_ids
         return out_ids
 
     def similarity_search_with_score(
         self,
         query: str,
-        k: int = 4,
+        k: int = 1,
         filter: Optional[dict] = None
     ) -> List[Tuple[Document, float]]:
         return self.similarity_search_by_vector_with_score(
@@ -105,7 +103,7 @@ class KDBAI(VectorStore):
         self,
         embedding: List[float],
         *,
-        k: int = 4,
+        k: int = 1,
         filter: Optional[list] = []
     ) -> List[Tuple[Document, float]]:
         
@@ -120,7 +118,7 @@ class KDBAI(VectorStore):
     def similarity_search(
         self,
         query: str,
-        k: int = 4,
+        k: int = 1,
         filter: Optional[dict] = None,
         **kwargs: Any,
     ) -> List[Document]:
@@ -148,19 +146,7 @@ class KDBAI(VectorStore):
                 "Could not import kdbai_client python package. "
                 "Please install it with `pip install kdbai_client`."
             )
-        
         table = session.table(table_name)
         vstore = cls(table, embedding, **kwargs)
-        for i in range(0, len(texts), batch_size):
-            i_end = min(i + batch_size, len(texts))
-            batch = texts[i:i_end]
-            if ids:
-                batch_ids = ids[i:i_end]
-            else:
-                batch_ids = [str(uuid.uuid4()) for n in range(i, i_end)]
-            if metadata is not None:
-                batch_meta = metadata.iloc[i:i_end]
-            else:
-                batch_meta = None
-            vstore._insert(batch, batch_ids, batch_meta)
+        vstore.add_texts(texts, ids, metadata, batch_size)
         return vstore
