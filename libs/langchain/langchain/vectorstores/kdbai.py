@@ -80,7 +80,7 @@ class KDBAI(VectorStore):
             if ids:
                 batch_ids = ids[istart:iend]
             else:
-                batch_ids = [str(uuid.uuid4()) for _ in range(len(texts))]
+                batch_ids = [str(uuid.uuid4()) for _ in range(len(batch))]
             if metadata is not None:
                 batch_meta = metadata.iloc[istart:iend].reset_index(drop=True)
             else:
