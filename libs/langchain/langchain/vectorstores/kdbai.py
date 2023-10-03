@@ -88,15 +88,26 @@ class KDBAI(VectorStore):
             self._insert(batch, batch_ids, batch_meta)
             out_ids = out_ids + batch_ids
         return out_ids
+    
+    def add_documents(
+            self, 
+            documents: List[Document],
+            batch_size: int = 32,
+            **kwargs: Any
+    ) -> List[str]:
+        texts = [x.page_content for x in documents]
+        metadata = pd.DataFrame([x.metadata for x in documents])
+        return self.add_texts(texts, metadata=metadata, batch_size=batch_size)
 
     def similarity_search_with_score(
         self,
         query: str,
         k: int = 1,
-        filter: Optional[dict] = None
+        filter: Optional[dict] = None,
+        **kwargs: Any,
     ) -> List[Tuple[Document, float]]:
         return self.similarity_search_by_vector_with_score(
-            self._embed_query(query), k=k, filter=filter
+            self._embed_query(query), k=k, filter=filter, **kwargs
         )
 
     def similarity_search_by_vector_with_score(
@@ -104,10 +115,11 @@ class KDBAI(VectorStore):
         embedding: List[float],
         *,
         k: int = 1,
-        filter: Optional[list] = []
+        filter: Optional[list] = [],
+        **kwargs: Any,
     ) -> List[Tuple[Document, float]]:
         
-        matches = self._table.search(vectors=[embedding], n=k, filter=filter)[0]
+        matches = self._table.search(vectors=[embedding], n=k, filter=filter, **kwargs)[0]
         docs = []
         for row in matches.to_dict(orient='records'):
             text = row.pop('text')
