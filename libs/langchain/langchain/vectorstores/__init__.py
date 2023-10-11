@@ -460,6 +460,8 @@ def __getattr__(name: str) -> Any:
         return _import_faiss()
     elif name == "Hologres":
         return _import_hologres()
+    elif name == "KDBAI":
+        return _import_kdbai()
     elif name == "LanceDB":
         return _import_lancedb()
     elif name == "LLMRails":
