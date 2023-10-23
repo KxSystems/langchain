@@ -16,6 +16,19 @@ logger = logging.getLogger(__name__)
 
 
 class KDBAI(VectorStore):
+    """"`KDB.AI` vector store [https://kdb.ai](https://kdb.ai)
+    
+    To use, you should have the `kdbai_client` python package installed.
+
+    Args:
+        table: kdbai_client.Table object to use as storage,
+        embedding: Any embedding function implementing
+            `langchain.embeddings.base.Embeddings` interface,
+        distance_strategy: One option from DistanceStrategy.EUCLIDEAN_DISTANCE, 
+            DistanceStrategy.DOT_PRODUCT or DistanceStrategy.COSINE.
+
+    See the example [notebook](https://github.com/KxSystems/langchain/blob/KDB.AI/docs/docs/integrations/vectorstores/kdbai.ipynb).
+    """
 
     def __init__(
         self,
@@ -68,9 +81,21 @@ class KDBAI(VectorStore):
         texts: Iterable[str],
         ids: Optional[List[str]] = None,
         metadata: Optional[List[dict]] = None,
-        batch_size: int = 32,
+        batch_size: Optional[int] = 32,
         **kwargs: Any
     ) -> List[str]:
+        """Run more texts through the embeddings and add to the vectorstore.
+
+        Args:
+            texts (Iterable[str]): Texts to add to the vectorstore.
+            ids (Optional[List[str]]): List of IDs corresponding to each chunk of text.
+            metadatas (Optional[pandas.DataFrame]): Optional dataframe with columns of metadata. 
+                This dataframe should have one row per chunk of text.
+            batch_size (Optional[int]): Size of batch of chunks of text to insert at once.
+
+        Returns:
+            List[str]: List of IDs of the added texts.
+        """
         out_ids = []
         nbatches = (len(texts)-1)//batch_size + 1
         for i in range(nbatches):
@@ -92,9 +117,18 @@ class KDBAI(VectorStore):
     def add_documents(
             self, 
             documents: List[Document],
-            batch_size: int = 32,
+            batch_size: Optional[int] = 32,
             **kwargs: Any
     ) -> List[str]:
+        """Run more documents through the embeddings and add to the vectorstore.
+
+        Args:
+            documents (List[Document]: Documents to add to the vectorstore.
+            batch_size (Optional[int]): Size of batch of documents to insert at once.
+
+        Returns:
+            List[str]: List of IDs of the added texts.
+        """
         texts = [x.page_content for x in documents]
         metadata = pd.DataFrame([x.metadata for x in documents])
         return self.add_texts(texts, metadata=metadata, batch_size=batch_size)
@@ -103,9 +137,19 @@ class KDBAI(VectorStore):
         self,
         query: str,
         k: int = 1,
-        filter: Optional[dict] = None,
+        filter: Optional[list] = [],
         **kwargs: Any,
     ) -> List[Tuple[Document, float]]:
+        """Run similarity search with distance from a query string.
+        
+        Args:
+            query (str): Query string.
+            k (Optional[int]): number of neighbors to retrieve.
+            filter (Optional[List]): KDB.AI metadata filter clause: https://code.kx.com/kdbai/use/filter.html
+        
+        Returns:
+            List[Document]: List of similar documents.
+        """
         return self.similarity_search_by_vector_with_score(
             self._embed_query(query), k=k, filter=filter, **kwargs
         )
@@ -118,7 +162,16 @@ class KDBAI(VectorStore):
         filter: Optional[list] = [],
         **kwargs: Any,
     ) -> List[Tuple[Document, float]]:
+        """Return pinecone documents most similar to embedding, along with scores.
         
+        Args:
+            embedding (List[float]): query vector.
+            k (Optional[int]): number of neighbors to retrieve.
+            filter (Optional[List]): KDB.AI metadata filter clause: https://code.kx.com/kdbai/use/filter.html
+        
+        Returns:
+            List[Document]: List of similar documents.
+        """
         matches = self._table.search(vectors=[embedding], n=k, filter=filter, **kwargs)[0]
         docs = []
         for row in matches.to_dict(orient='records'):
@@ -134,6 +187,16 @@ class KDBAI(VectorStore):
         filter: Optional[dict] = None,
         **kwargs: Any,
     ) -> List[Document]:
+        """Run similarity search from a query string.
+        
+        Args:
+            query (str): Query string.
+            k (Optional[int]): number of neighbors to retrieve.
+            filter (Optional[List]): KDB.AI metadata filter clause: https://code.kx.com/kdbai/use/filter.html
+        
+        Returns:
+            List[Document]: List of similar documents.
+        """
         docs_and_scores = self.similarity_search_with_score(
             query, k=k, filter=filter, **kwargs
         )
@@ -144,13 +207,29 @@ class KDBAI(VectorStore):
         cls,
         session: Any,
         table_name: str,
-        texts: List[str],
+        texts: Iterable[str],
         embedding: Embeddings,
         ids: Optional[List[str]] = None,
         metadata: Optional(pd.DataFrame) = None,
-        batch_size: int = 32,
+        batch_size: Optional[int] = 32,
         **kwargs: Any,
     ) -> KDBAI:
+        """Return VectorStore initialized from texts and embeddings.
+        
+        Args:
+            session (kdbai.Session): KDB.AI session object.
+            table_name (str): name of the existing KDB.AI table to use as storage.
+            texts (Iterable[str]): Texts to add to the vectorstore.
+            embedding (Emedding): Any embedding function implementing
+                `langchain.embeddings.base.Embeddings` interface,
+            ids (Optional(List[str])): List of IDs corresponding to each chunk of text.
+            metadata (Optional[pandas.DataFrame]): Optional dataframe with columns of metadata. 
+                This dataframe should have one row per chunk of text.
+            batch_size (Optional[int]): Size of batch of chunks of text to insert at once.
+
+        Returns:
+            KDBAI: A KDB.AI vectorstore implementing the `langchain.schema.vectorstore.VectorStore` interface.
+        """
         try:
             import kdbai_client as kdbai
         except ImportError:
