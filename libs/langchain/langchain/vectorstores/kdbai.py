@@ -2,19 +2,20 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any, Iterable, List, Optional, Tuple, Union
+from typing import Any, Iterable, List, Optional, Tuple
 
 import numpy as np
 
 from langchain.docstore.document import Document
 from langchain.schema.embeddings import Embeddings
 from langchain.vectorstores.base import VectorStore
-from langchain.vectorstores.utils import DistanceStrategy, maximal_marginal_relevance
+from langchain.vectorstores.utils import DistanceStrategy
 
 logger = logging.getLogger(__name__)
 
 
 pd = None
+
 
 def load_pandas():
     global pd
@@ -29,7 +30,7 @@ def load_pandas():
 
 
 class KDBAI(VectorStore):
-    """ `KDB.AI` vector store [https://kdb.ai](https://kdb.ai)
+    """`KDB.AI` vector store [https://kdb.ai](https://kdb.ai)
 
     To use, you should have the `kdbai_client` python package installed.
 
@@ -52,7 +53,7 @@ class KDBAI(VectorStore):
         ] = DistanceStrategy.EUCLIDEAN_DISTANCE,
     ):
         try:
-            import kdbai_client as kdbai
+            import kdbai_client  # noqa
         except ImportError:
             raise ImportError(
                 "Could not import kdbai_client python package. "
@@ -88,7 +89,7 @@ class KDBAI(VectorStore):
         embeds = self._embedding.embed_documents(texts)
         df = pd.DataFrame()
         df["id"] = ids
-        df["text"] = [l.encode("utf-8") for l in texts]
+        df["text"] = [t.encode("utf-8") for t in texts]
         df["embeddings"] = [np.array(e, dtype="float32") for e in embeds]
         if metadata is not None:
             df = pd.concat([df, metadata], axis=1)
@@ -107,9 +108,10 @@ class KDBAI(VectorStore):
         Args:
             texts (Iterable[str]): Texts to add to the vectorstore.
             ids (Optional[List[str]]): List of IDs corresponding to each chunk of text.
-            metadatas (Optional[pandas.DataFrame]): Optional dataframe with columns of metadata.
-                This dataframe should have one row per chunk of text.
-            batch_size (Optional[int]): Size of batch of chunks of text to insert at once.
+            metadatas (Optional[pandas.DataFrame]): Optional dataframe with columns of
+                metadata. This dataframe should have one row per chunk of text.
+            batch_size (Optional[int]): Size of batch of chunks of text to insert at
+                once.
 
         Returns:
             List[str]: List of IDs of the added texts.
@@ -248,15 +250,17 @@ class KDBAI(VectorStore):
             embedding (Emedding): Any embedding function implementing
                 `langchain.embeddings.base.Embeddings` interface,
             ids (Optional(List[str])): List of IDs corresponding to each chunk of text.
-            metadata (Optional[pandas.DataFrame]): Optional dataframe with columns of metadata.
-                This dataframe should have one row per chunk of text.
-            batch_size (Optional[int]): Size of batch of chunks of text to insert at once.
+            metadata (Optional[pandas.DataFrame]): Optional dataframe with columns of
+                metadata. This dataframe should have one row per chunk of text.
+            batch_size (Optional[int]): Size of batch of chunks of text to insert at
+                once.
 
         Returns:
-            KDBAI: A KDB.AI vectorstore implementing the `langchain.schema.vectorstore.VectorStore` interface.
+            KDBAI: A KDB.AI vectorstore implementing the
+                `langchain.schema.vectorstore.VectorStore` interface.
         """
         try:
-            import kdbai_client as kdbai
+            import kdbai_client  # noqa
         except ImportError:
             raise ValueError(
                 "Could not import kdbai_client python package. "
