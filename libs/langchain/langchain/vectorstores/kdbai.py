@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
+from typing import Any, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
-import pandas as pd
 
 from langchain.docstore.document import Document
 from langchain.embeddings.base import Embeddings
@@ -33,7 +32,7 @@ class KDBAI(VectorStore):
     def __init__(
         self,
         table: Any,
-        embedding: Union[Embeddings, Callable],
+        embedding: Embeddings,
         distance_strategy: Optional[DistanceStrategy] = DistanceStrategy.EUCLIDEAN_DISTANCE,
     ):
         try:
@@ -42,6 +41,13 @@ class KDBAI(VectorStore):
             raise ImportError(
                 "Could not import kdbai_client python package. "
                 "Please install it with `pip install kdbai_client`."
+            )
+        try:
+            import pandas as pd
+        except ImportError:
+            raise ImportError(
+                "KDBAI vector store requires pandas python package. "
+                "Please install it with `pip install pandas`."
             )
         self._table = table
         self._embedding = embedding
