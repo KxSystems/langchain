@@ -306,7 +306,6 @@ all = [
     "amadeus",
     "librosa",
     "python-arango",
-    "kdbai_client",
 ]
 
 cli = [
