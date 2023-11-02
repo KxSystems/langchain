@@ -7,23 +7,37 @@ from typing import Any, Iterable, List, Optional, Tuple, Union
 import numpy as np
 
 from langchain.docstore.document import Document
-from langchain.embeddings.base import Embeddings
+from langchain.schema.embeddings import Embeddings
 from langchain.vectorstores.base import VectorStore
 from langchain.vectorstores.utils import DistanceStrategy, maximal_marginal_relevance
 
 logger = logging.getLogger(__name__)
 
 
+pd = None
+
+def load_pandas():
+    global pd
+    try:
+        import pandas
+    except ImportError:
+        raise ImportError(
+            "KDBAI vector store requires pandas python package. "
+            "Please install it with `pip install pandas`."
+        )
+    pd = pandas
+
+
 class KDBAI(VectorStore):
-    """"`KDB.AI` vector store [https://kdb.ai](https://kdb.ai)
-    
+    """ `KDB.AI` vector store [https://kdb.ai](https://kdb.ai)
+
     To use, you should have the `kdbai_client` python package installed.
 
     Args:
         table: kdbai_client.Table object to use as storage,
         embedding: Any embedding function implementing
             `langchain.embeddings.base.Embeddings` interface,
-        distance_strategy: One option from DistanceStrategy.EUCLIDEAN_DISTANCE, 
+        distance_strategy: One option from DistanceStrategy.EUCLIDEAN_DISTANCE,
             DistanceStrategy.DOT_PRODUCT or DistanceStrategy.COSINE.
 
     See the example [notebook](https://github.com/KxSystems/langchain/blob/KDB.AI/docs/docs/integrations/vectorstores/kdbai.ipynb).
@@ -33,7 +47,9 @@ class KDBAI(VectorStore):
         self,
         table: Any,
         embedding: Embeddings,
-        distance_strategy: Optional[DistanceStrategy] = DistanceStrategy.EUCLIDEAN_DISTANCE,
+        distance_strategy: Optional[
+            DistanceStrategy
+        ] = DistanceStrategy.EUCLIDEAN_DISTANCE,
     ):
         try:
             import kdbai_client as kdbai
@@ -42,13 +58,7 @@ class KDBAI(VectorStore):
                 "Could not import kdbai_client python package. "
                 "Please install it with `pip install kdbai_client`."
             )
-        try:
-            import pandas as pd
-        except ImportError:
-            raise ImportError(
-                "KDBAI vector store requires pandas python package. "
-                "Please install it with `pip install pandas`."
-            )
+        load_pandas()
         self._table = table
         self._embedding = embedding
         self.distance_strategy = distance_strategy
@@ -69,15 +79,17 @@ class KDBAI(VectorStore):
             return self._embedding.embed_query(text)
         return self._embedding(text)
 
-    def _insert(self, texts: Iterable[str], 
-                ids: Optional[List[str]],
-                metadata: Optional[pd.DataFrame] = None
+    def _insert(
+        self,
+        texts: Iterable[str],
+        ids: Optional[List[str]],
+        metadata: Optional[pd.DataFrame] = None,
     ):
         embeds = self._embedding.embed_documents(texts)
         df = pd.DataFrame()
-        df['id'] = ids
-        df['text'] = [l.encode('utf-8') for l in texts]
-        df['embeddings'] = [np.array(e, dtype='float32') for e in embeds]
+        df["id"] = ids
+        df["text"] = [l.encode("utf-8") for l in texts]
+        df["embeddings"] = [np.array(e, dtype="float32") for e in embeds]
         if metadata is not None:
             df = pd.concat([df, metadata], axis=1)
         self._table.insert(df, warn=False)
@@ -88,14 +100,14 @@ class KDBAI(VectorStore):
         ids: Optional[List[str]] = None,
         metadata: Optional[List[dict]] = None,
         batch_size: Optional[int] = 32,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> List[str]:
         """Run more texts through the embeddings and add to the vectorstore.
 
         Args:
             texts (Iterable[str]): Texts to add to the vectorstore.
             ids (Optional[List[str]]): List of IDs corresponding to each chunk of text.
-            metadatas (Optional[pandas.DataFrame]): Optional dataframe with columns of metadata. 
+            metadatas (Optional[pandas.DataFrame]): Optional dataframe with columns of metadata.
                 This dataframe should have one row per chunk of text.
             batch_size (Optional[int]): Size of batch of chunks of text to insert at once.
 
@@ -103,10 +115,10 @@ class KDBAI(VectorStore):
             List[str]: List of IDs of the added texts.
         """
         out_ids = []
-        nbatches = (len(texts)-1)//batch_size + 1
+        nbatches = (len(texts) - 1) // batch_size + 1
         for i in range(nbatches):
             istart = i * batch_size
-            iend = (i+1) * batch_size
+            iend = (i + 1) * batch_size
             batch = texts[istart:iend]
             if ids:
                 batch_ids = ids[istart:iend]
@@ -119,12 +131,9 @@ class KDBAI(VectorStore):
             self._insert(batch, batch_ids, batch_meta)
             out_ids = out_ids + batch_ids
         return out_ids
-    
+
     def add_documents(
-            self, 
-            documents: List[Document],
-            batch_size: Optional[int] = 32,
-            **kwargs: Any
+        self, documents: List[Document], batch_size: Optional[int] = 32, **kwargs: Any
     ) -> List[str]:
         """Run more documents through the embeddings and add to the vectorstore.
 
@@ -147,12 +156,12 @@ class KDBAI(VectorStore):
         **kwargs: Any,
     ) -> List[Tuple[Document, float]]:
         """Run similarity search with distance from a query string.
-        
+
         Args:
             query (str): Query string.
             k (Optional[int]): number of neighbors to retrieve.
             filter (Optional[List]): KDB.AI metadata filter clause: https://code.kx.com/kdbai/use/filter.html
-        
+
         Returns:
             List[Document]: List of similar documents.
         """
@@ -169,21 +178,31 @@ class KDBAI(VectorStore):
         **kwargs: Any,
     ) -> List[Tuple[Document, float]]:
         """Return pinecone documents most similar to embedding, along with scores.
-        
+
         Args:
             embedding (List[float]): query vector.
             k (Optional[int]): number of neighbors to retrieve.
             filter (Optional[List]): KDB.AI metadata filter clause: https://code.kx.com/kdbai/use/filter.html
-        
+
         Returns:
             List[Document]: List of similar documents.
         """
-        matches = self._table.search(vectors=[embedding], n=k, filter=filter, **kwargs)[0]
+        matches = self._table.search(vectors=[embedding], n=k, filter=filter, **kwargs)[
+            0
+        ]
         docs = []
-        for row in matches.to_dict(orient='records'):
-            text = row.pop('text')
-            score = row.pop('__nn_distance')
-            docs.append((Document(page_content=text, metadata={k:v for k,v in row.items() if k != 'text'}), score))
+        for row in matches.to_dict(orient="records"):
+            text = row.pop("text")
+            score = row.pop("__nn_distance")
+            docs.append(
+                (
+                    Document(
+                        page_content=text,
+                        metadata={k: v for k, v in row.items() if k != "text"},
+                    ),
+                    score,
+                )
+            )
         return docs
 
     def similarity_search(
@@ -194,12 +213,12 @@ class KDBAI(VectorStore):
         **kwargs: Any,
     ) -> List[Document]:
         """Run similarity search from a query string.
-        
+
         Args:
             query (str): Query string.
             k (Optional[int]): number of neighbors to retrieve.
             filter (Optional[List]): KDB.AI metadata filter clause: https://code.kx.com/kdbai/use/filter.html
-        
+
         Returns:
             List[Document]: List of similar documents.
         """
@@ -221,7 +240,7 @@ class KDBAI(VectorStore):
         **kwargs: Any,
     ) -> KDBAI:
         """Return VectorStore initialized from texts and embeddings.
-        
+
         Args:
             session (kdbai.Session): KDB.AI session object.
             table_name (str): name of the existing KDB.AI table to use as storage.
@@ -229,7 +248,7 @@ class KDBAI(VectorStore):
             embedding (Emedding): Any embedding function implementing
                 `langchain.embeddings.base.Embeddings` interface,
             ids (Optional(List[str])): List of IDs corresponding to each chunk of text.
-            metadata (Optional[pandas.DataFrame]): Optional dataframe with columns of metadata. 
+            metadata (Optional[pandas.DataFrame]): Optional dataframe with columns of metadata.
                 This dataframe should have one row per chunk of text.
             batch_size (Optional[int]): Size of batch of chunks of text to insert at once.
 
