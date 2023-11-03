@@ -6,27 +6,17 @@ from typing import Any, Iterable, List, Optional, Tuple
 
 import numpy as np
 
+try:
+    import pandas as pd
+except ImportError:
+    pass
+
 from langchain.docstore.document import Document
 from langchain.schema.embeddings import Embeddings
 from langchain.vectorstores.base import VectorStore
 from langchain.vectorstores.utils import DistanceStrategy
 
 logger = logging.getLogger(__name__)
-
-
-pd = None
-
-
-def load_pandas():
-    global pd
-    try:
-        import pandas
-    except ImportError:
-        raise ImportError(
-            "KDBAI vector store requires pandas python package. "
-            "Please install it with `pip install pandas`."
-        )
-    pd = pandas
 
 
 class KDBAI(VectorStore):
@@ -59,7 +49,6 @@ class KDBAI(VectorStore):
                 "Could not import kdbai_client python package. "
                 "Please install it with `pip install kdbai_client`."
             )
-        load_pandas()
         self._table = table
         self._embedding = embedding
         self.distance_strategy = distance_strategy
@@ -82,10 +71,10 @@ class KDBAI(VectorStore):
 
     def _insert(
         self,
-        texts: Iterable[str],
+        texts: List[str],
         ids: Optional[List[str]],
         metadata: Optional[pd.DataFrame] = None,
-    ):
+    ) -> None:
         embeds = self._embedding.embed_documents(texts)
         df = pd.DataFrame()
         df["id"] = ids
@@ -98,25 +87,32 @@ class KDBAI(VectorStore):
     def add_texts(
         self,
         texts: Iterable[str],
+        metadatas: Optional[List[dict]] = None,
         ids: Optional[List[str]] = None,
-        metadata: Optional[List[dict]] = None,
-        batch_size: Optional[int] = 32,
+        batch_size: int = 32,
         **kwargs: Any,
     ) -> List[str]:
         """Run more texts through the embeddings and add to the vectorstore.
 
         Args:
             texts (Iterable[str]): Texts to add to the vectorstore.
+            metadatas (Optional[List[dict]]): List of metadata corresponding to each
+                chunk of text.
             ids (Optional[List[str]]): List of IDs corresponding to each chunk of text.
-            metadatas (Optional[pandas.DataFrame]): Optional dataframe with columns of
-                metadata. This dataframe should have one row per chunk of text.
             batch_size (Optional[int]): Size of batch of chunks of text to insert at
                 once.
 
         Returns:
             List[str]: List of IDs of the added texts.
         """
-        out_ids = []
+        texts = list(texts)
+        metadf: pd.DataFrame = None
+        if metadatas is not None:
+            if isinstance(metadatas, pd.DataFrame):
+                metadf = metadatas
+            else:
+                metadf = pd.DataFrame(metadatas)
+        out_ids: List[str] = []
         nbatches = (len(texts) - 1) // batch_size + 1
         for i in range(nbatches):
             istart = i * batch_size
@@ -126,8 +122,8 @@ class KDBAI(VectorStore):
                 batch_ids = ids[istart:iend]
             else:
                 batch_ids = [str(uuid.uuid4()) for _ in range(len(batch))]
-            if metadata is not None:
-                batch_meta = metadata.iloc[istart:iend].reset_index(drop=True)
+            if metadf is not None:
+                batch_meta = metadf.iloc[istart:iend].reset_index(drop=True)
             else:
                 batch_meta = None
             self._insert(batch, batch_ids, batch_meta)
@@ -135,7 +131,7 @@ class KDBAI(VectorStore):
         return out_ids
 
     def add_documents(
-        self, documents: List[Document], batch_size: Optional[int] = 32, **kwargs: Any
+        self, documents: List[Document], batch_size: int = 32, **kwargs: Any
     ) -> List[str]:
         """Run more documents through the embeddings and add to the vectorstore.
 
@@ -154,7 +150,7 @@ class KDBAI(VectorStore):
         self,
         query: str,
         k: int = 1,
-        filter: Optional[list] = [],
+        filter: Optional[List] = [],
         **kwargs: Any,
     ) -> List[Tuple[Document, float]]:
         """Run similarity search with distance from a query string.
@@ -176,7 +172,7 @@ class KDBAI(VectorStore):
         embedding: List[float],
         *,
         k: int = 1,
-        filter: Optional[list] = [],
+        filter: Optional[List] = [],
         **kwargs: Any,
     ) -> List[Tuple[Document, float]]:
         """Return pinecone documents most similar to embedding, along with scores.
@@ -211,7 +207,7 @@ class KDBAI(VectorStore):
         self,
         query: str,
         k: int = 1,
-        filter: Optional[dict] = None,
+        filter: Optional[List] = [],
         **kwargs: Any,
     ) -> List[Document]:
         """Run similarity search from a query string.
@@ -231,42 +227,11 @@ class KDBAI(VectorStore):
 
     @classmethod
     def from_texts(
-        cls,
-        session: Any,
-        table_name: str,
-        texts: Iterable[str],
+        cls: Any,
+        texts: List[str],
         embedding: Embeddings,
-        ids: Optional[List[str]] = None,
-        metadata: Optional(pd.DataFrame) = None,
-        batch_size: Optional[int] = 32,
+        metadatas: Optional[List[dict]] = None,
         **kwargs: Any,
-    ) -> KDBAI:
-        """Return VectorStore initialized from texts and embeddings.
-
-        Args:
-            session (kdbai.Session): KDB.AI session object.
-            table_name (str): name of the existing KDB.AI table to use as storage.
-            texts (Iterable[str]): Texts to add to the vectorstore.
-            embedding (Emedding): Any embedding function implementing
-                `langchain.embeddings.base.Embeddings` interface,
-            ids (Optional(List[str])): List of IDs corresponding to each chunk of text.
-            metadata (Optional[pandas.DataFrame]): Optional dataframe with columns of
-                metadata. This dataframe should have one row per chunk of text.
-            batch_size (Optional[int]): Size of batch of chunks of text to insert at
-                once.
-
-        Returns:
-            KDBAI: A KDB.AI vectorstore implementing the
-                `langchain.schema.vectorstore.VectorStore` interface.
-        """
-        try:
-            import kdbai_client  # noqa
-        except ImportError:
-            raise ValueError(
-                "Could not import kdbai_client python package. "
-                "Please install it with `pip install kdbai_client`."
-            )
-        table = session.table(table_name)
-        vstore = cls(table, embedding, **kwargs)
-        vstore.add_texts(texts, ids, metadata, batch_size)
-        return vstore
+    ) -> Any:
+        """Not implemented."""
+        raise Exception("Not implemented.")
