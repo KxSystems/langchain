@@ -203,7 +203,7 @@ def _import_hologres() -> Any:
 
 
 def _import_kdbai() -> Any:
-    from langchain.vectorstores.kdbai import KDBAI
+    from langchain_community.vectorstores.kdbai import KDBAI
 
     return KDBAI
 
