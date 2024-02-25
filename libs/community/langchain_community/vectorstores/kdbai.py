@@ -88,10 +88,13 @@ class KDBAI(VectorStore):
         embeds = self._embedding.embed_documents(texts)
         df = pd.DataFrame()
         df["id"] = ids
-        df["text"] = [t.encode("utf-8") for t in texts]
+        df["text"] = [t.encode("utf-8", errors='ignore') for t in texts]
         df["embeddings"] = [np.array(e, dtype="float32") for e in embeds]
         if metadata is not None:
             df = pd.concat([df, metadata], axis=1)
+        for col in self._table.schema()['columns']:
+            if col['pytype'] == 'datetime64[ns]':
+                df[col['name']] = pd.to_datetime(df[col['name']])
         self._table.insert(df, warn=False)
 
     def add_texts(
@@ -127,10 +130,7 @@ class KDBAI(VectorStore):
         texts = list(texts)
         metadf: pd.DataFrame = None
         if metadatas is not None:
-            if isinstance(metadatas, pd.DataFrame):
-                metadf = metadatas
-            else:
-                metadf = pd.DataFrame(metadatas)
+            metadf = pd.DataFrame(metadatas)
         out_ids: List[str] = []
         nbatches = (len(texts) - 1) // batch_size + 1
         for i in range(nbatches):
@@ -171,8 +171,8 @@ class KDBAI(VectorStore):
             )
 
         texts = [x.page_content for x in documents]
-        metadata = pd.DataFrame([x.metadata for x in documents])
-        return self.add_texts(texts, metadata=metadata, batch_size=batch_size)
+        metadatas = [x.metadata for x in documents]
+        return self.add_texts(texts, metadatas=metadatas, batch_size=batch_size)
 
     def similarity_search_with_score(
         self,
