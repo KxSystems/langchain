@@ -45,6 +45,9 @@ from langchain_community.retrievers.google_vertex_ai_search import (
     GoogleVertexAISearchRetriever,
 )
 from langchain_community.retrievers.kay import KayAiRetriever
+from langchain_community.retrievers.kdbai_hybrid_search import (
+    KDBAIHybridSearchRetriever,
+)
 from langchain_community.retrievers.kendra import AmazonKendraRetriever
 from langchain_community.retrievers.knn import KNNRetriever
 from langchain_community.retrievers.llama_index import (
@@ -92,6 +95,7 @@ __all__ = [
     "GoogleVertexAIMultiTurnSearchRetriever",
     "GoogleVertexAISearchRetriever",
     "KayAiRetriever",
+    "KDBAIHybridSearchRetriever",
     "KNNRetriever",
     "LlamaIndexGraphRetriever",
     "LlamaIndexRetriever",
